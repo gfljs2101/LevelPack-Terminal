@@ -185,3 +185,50 @@ read_file:
 .read_error:
     stc
     ret
+
+; ------------------------------------------------------------------
+; list_root_directory
+; Reads the root directory and prints the names of all files.
+; IN:
+;   - None
+; OUT:
+;   - carry flag set on disk error
+; Clobbers: ax, bx, cx, si, bp
+;------------------------------------------------------------------
+list_root_directory:
+    mov ax, cs
+    mov es, ax
+    mov bx, fs_buffer
+
+    mov al, 1 ; Read one sector for the root directory
+    mov cx, ROOT_DIR_SECTOR
+    call read_sectors
+    jc .error ; Disk error
+
+    mov bp, fs_buffer
+    mov cx, 16 ; 16 entries in the root directory sector
+.list_loop:
+    push cx
+    mov ax, [bp] ; Get inode number
+    or ax, ax
+    jz .skip_entry ; Skip if inode is 0 (unused)
+
+    ; Inode is valid, print the filename
+    push bp
+    add bp, 2 ; Point to name field in dir_entry
+    mov si, bp
+    call print_string ; Assumes print_string is in kernel.asm
+    pop bp
+    call print_newline ; Assumes print_newline is in kernel.asm
+
+.skip_entry:
+    add bp, 32 ; Move to the next directory entry
+    pop cx
+    loop .list_loop
+
+    clc ; Success
+    ret
+
+.error:
+    stc ; Error
+    ret
