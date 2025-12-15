@@ -100,25 +100,27 @@ find_file_in_root:
     jc .error ; Disk error
 
     mov bp, fs_buffer
-    mov cx, 512 / 32 ; 16 entries in one sector
+    mov cx, 16 ; 16 entries in the sector
 .search_loop:
-    push cx
+    cmp cx, 0
+    je .not_found ; If we've checked all entries, it's not here
+
+    push si ; Preserve filename pointer for this entry
+
     mov ax, [bp] ; Get inode number
-    or ax, ax
-    jz .no_match
+    test ax, ax
+    jz .no_match ; Skip if inode is 0 (unused entry)
 
-    push si
-    add bp, 2 ; Point to name in dir_entry (DI)
+    ; Now compare the filename
     mov di, bp
-    pop si ; Restore SI (user input)
-
+    add di, 2 ; DI points to the name in the directory entry
 .compare_loop:
     mov al, [si]
     mov ah, [di]
     cmp al, ah
     jne .no_match ; Mismatch
 
-    cmp al, 0 ; End of string?
+    test al, al ; End of string?
     je .found ; Both are null, it's a match
 
     inc si
@@ -126,17 +128,19 @@ find_file_in_root:
     jmp .compare_loop
 
 .no_match:
-    add bp, 32 ; Move to the next entry
-    pop cx
-    loop .search_loop
+    pop si ; Restore filename pointer for the next iteration
+    add bp, 32 ; Move to the next directory entry
+    dec cx
+    jmp .search_loop
 
+.not_found:
 .error:
     stc
     mov ax, 0
     ret
 
 .found:
-    pop cx ; Balance the stack from the .search_loop push
+    pop si ; Balance the stack
     mov ax, [bp] ; Return the inode number in ax
     clc
     ret

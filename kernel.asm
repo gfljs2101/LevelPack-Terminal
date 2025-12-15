@@ -31,23 +31,44 @@ main_loop:
 execute_command:
     mov si, buffer
     cmp byte [si], 0
-    je .done
+    je .done ; Nothing entered
 
-    mov di, commands
+    ; Find the end of the command and null-terminate it.
+    ; SI will point to the beginning of the arguments.
+.find_end_of_cmd:
+    lodsb
+    cmp al, ' '
+    je .found_space
+    cmp al, 0
+    je .found_null
+    jmp .find_end_of_cmd
+
+.found_space:
+    mov byte [si-1], 0 ; Null-terminate the command
+    jmp .scan_args
+.found_null:
+    dec si ; Point to the null terminator
+    jmp .scan_args
+
+.scan_args:
+    ; Now SI points to the start of the arguments. Let's save it.
+    mov [command_args_ptr], si
+    mov si, buffer     ; Reset SI to the start of the (now-terminated) command
+    mov di, commands   ; DI points to the command table
 .cmd_loop:
     cmp byte [di], 0
     je .unknown_cmd
 
     push si
     push di
-    add di, 2
+    add di, 2 ; Point DI to the command string in the table
 .compare_loop:
     mov al, [si]
     mov ah, [di]
     cmp al, ah
     jne .next_cmd
     cmp al, 0
-    je .found_cmd
+    je .found_cmd ; Both are null, exact match
     inc si
     inc di
     jmp .compare_loop
@@ -55,13 +76,13 @@ execute_command:
 .next_cmd:
     pop di
     pop si
-    add di, 32
+    add di, 32 ; Move to the next command entry
     jmp .cmd_loop
 
 .found_cmd:
     pop di
     pop si
-    mov bx, [di - 2]
+    mov bx, [di - 2] ; Get the handler address
     call bx
     jmp .done
 
@@ -72,7 +93,17 @@ execute_command:
     ret
 
 handle_cat:
-    mov si, buffer + 4
+    mov si, [command_args_ptr]
+
+.skip_whitespace:
+    lodsb
+    cmp al, ' '
+    je .skip_whitespace
+    cmp al, 0
+    je .no_filename
+    dec si ; Found the start of the filename
+
+    ; Now SI points to the filename argument
     call find_file_in_root
     jc .file_not_found
 
@@ -87,6 +118,11 @@ handle_cat:
     mov si, fs_buffer
     call print_string
     call print_newline
+    ret
+
+.no_filename:
+    mov si, missing_filename_msg
+    call print_string
     ret
 
 .file_not_found:
@@ -240,9 +276,11 @@ welcome_msg: db 'LevelPack1218 Terminal v2.0', 0x0d, 0x0a, 0
 prompt: db '>', 0
 buffer: times 256 db 0
 prompt_pos_col: db 0
+command_args_ptr: dw 0
 unknown_cmd_msg: db 'Unknown command. Type "help".', 0x0d, 0x0a, 0
 file_not_found_msg: db 'File not found.', 0x0d, 0x0a, 0
 read_error_msg: db 'Error reading file.', 0x0d, 0x0a, 0
+missing_filename_msg: db 'Missing filename for cat.', 0x0d, 0x0a, 0
 reboot_msg: db 'Rebooting...', 0x0d, 0x0a, 0
 help_msg: db 'Commands: cat, help, cls, ls, reboot', 0x0d, 0x0a, 0
 
