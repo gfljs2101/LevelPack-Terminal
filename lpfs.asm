@@ -136,7 +136,7 @@ find_file_in_root:
     ret
 
 .found:
-    pop cx ; Clean up stack
+    pop cx ; Balance the stack from the .search_loop push
     mov ax, [bp] ; Return the inode number in ax
     clc
     ret
