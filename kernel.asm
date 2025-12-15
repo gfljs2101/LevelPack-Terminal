@@ -65,6 +65,15 @@ execute_command:
 .compare_loop:
     mov al, [si]
     mov ah, [di]
+
+    ; Convert input char to lowercase for case-insensitive comparison
+    cmp al, 'A'
+    jl .al_is_lower
+    cmp al, 'Z'
+    jg .al_is_lower
+    add al, 32
+.al_is_lower:
+
     cmp al, ah
     jne .next_cmd
     cmp al, 0
@@ -286,15 +295,15 @@ help_msg: db 'Commands: cat, help, cls, ls, reboot', 0x0d, 0x0a, 0
 
 commands:
     dw handle_cat, 'cat', 0
-    times 27 db 0
-    dw handle_help, 'help', 0
     times 26 db 0
+    dw handle_help, 'help', 0
+    times 25 db 0
     dw handle_cls, 'cls', 0
-    times 27 db 0
+    times 26 db 0
     dw handle_ls, 'ls', 0
-    times 28 db 0
+    times 27 db 0
     dw handle_reboot, 'reboot', 0
-    times 24 db 0
+    times 23 db 0
     db 0
 
 kernel_boot_drive: db 0
