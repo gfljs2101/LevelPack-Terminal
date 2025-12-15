@@ -30,11 +30,22 @@ main_loop:
 ; ==================================================================
 execute_command:
     mov si, buffer
+
+.trim_leading_whitespace:
+    cmp byte [si], ' '
+    jne .done_trimming
+    inc si
+    jmp .trim_leading_whitespace
+.done_trimming:
+
+    ; si now points to the first non-space character.
     cmp byte [si], 0
-    je .done ; Nothing entered
+    je .done ; Input was empty or just spaces
+
+    mov bx, si ; Save start of the actual command in bx
 
     ; Find the end of the command and null-terminate it.
-    ; SI will point to the beginning of the arguments.
+    ; SI will continue from where it is.
 .find_end_of_cmd:
     lodsb
     cmp al, ' '
@@ -53,7 +64,7 @@ execute_command:
 .scan_args:
     ; Now SI points to the start of the arguments. Let's save it.
     mov [command_args_ptr], si
-    mov si, buffer     ; Reset SI to the start of the (now-terminated) command
+    mov si, bx         ; Reset SI to the start of the command (from bx).
     mov di, commands   ; DI points to the command table
 .cmd_loop:
     cmp byte [di], 0
@@ -89,9 +100,9 @@ execute_command:
     jmp .cmd_loop
 
 .found_cmd:
-    pop di
+    pop di ; DI now points to the correct command table entry
     pop si
-    mov bx, [di - 2] ; Get the handler address
+    mov bx, [di] ; Get the handler address from the start of the entry
     call bx
     jmp .done
 
